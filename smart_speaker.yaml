@@ -1,0 +1,127 @@
+esphome:
+  name: waveshare-audio-s3
+  friendly_name: Waveshare AI Speaker
+  min_version: 2024.6.0
+  name_add_mac_suffix: true
+  project:
+    name: "waveshare.esp32_s3_audio_board"
+    version: "1.0"
+  on_boot:
+    # Ensure Amplifier is enabled on boot
+    priority: 600
+    then:
+      # Configure TCA9555 Pin 8 (P10) as Output (Register 0x07 = 0xFE)
+      - lambda: |
+          uint8_t data[] = {0x07, 0xFE};
+          id(bus_a).write(0x20, data, 2);
+      - switch.turn_on: amplifier_power
+
+esp32:
+  board: esp32-s3-devkitc-1
+  framework:
+    type: esp-idf
+
+logger:
+api:
+  encryption:
+    key: "otlXlpXQqC6Rf4zzjLfWMDGGuKJhfuFRaFrloH9xNi8="
+
+ota:
+  - platform: esphome
+    password: "f0709f2dca5fa1e2201cf46c8fd3cac8"
+
+wifi:
+  ssid: "vent24"
+  password: "vnetwirless"
+  ap:
+    ssid: "Waveshare-Fallback"
+    password: ""
+
+captive_portal:
+
+# Pull PCA9555 component issue bypassed by manual I2C control
+# external_components: ...
+
+# I2C Bus config (Confirmed: SDA=11, SCL=10)
+i2c:
+  sda: GPIO11
+  scl: GPIO10
+  scan: true
+  id: bus_a
+
+# Manual Amplifier Enable via I2C (TCA9555)
+# Address: 0x20
+# Register 0x06 (Config Port 0): 0xFF (All Inputs)
+# Register 0x07 (Config Port 1): 0xFE (Pin 8 Output, others Input)
+# Register 0x02 (Output Port 0): 0x00
+# Register 0x03 (Output Port 1): 0x01 (Pin 8 High)
+# This replaces the need for the external pca9555 component to just turn on the amp.
+
+# Switch to control the Amplifier Enable Pin (Virtual, controls I2C)
+switch:
+  - platform: template
+    name: "Amplifier Power"
+    id: amplifier_power
+    optimistic: true
+    turn_on_action:
+      - lambda: |
+          uint8_t data[] = {0x03, 0x01};
+          id(bus_a).write(0x20, data, 2);
+    turn_off_action:
+      - lambda: |
+          uint8_t data[] = {0x03, 0x00};
+          id(bus_a).write(0x20, data, 2);
+
+# I2S Audio Bus (Confirmed: MCLK=12, BCLK=13, WS=14)
+i2s_audio:
+  - id: i2s_bus
+    i2s_lrclk_pin: GPIO14
+    i2s_bclk_pin: GPIO13
+    i2s_mclk_pin: GPIO12
+
+# Speaker (ES8311 Codec)
+speaker:
+  - platform: i2s_audio
+    id: board_speaker
+    dac_type: external
+    i2s_dout_pin: GPIO15
+
+# Microphone (ES7210)
+# Connected via I2S (DIN=GPIO16)
+microphone:
+  - platform: i2s_audio
+    id: board_microphone
+    i2s_audio_id: i2s_bus
+    i2s_din_pin: GPIO16
+    adc_type: external
+    pdm: false
+    channel: left
+    sample_rate: 16000
+    bits_per_sample: 16bit
+    # Resampling and Filters:
+    # If using hardware that provides 48k but you need 16k:
+    # filters:
+    #   - resample:
+    #       sample_rate: 16000
+    #       quality: MEDIUM
+    #   - speex_noise_suppression: # Optional noise reduction
+    #       mode: MEDIUM
+
+# Voice Assistant
+# This uses the microphone and speaker defined above.
+voice_assistant:
+  id: va
+  microphone: board_microphone
+  speaker: board_speaker
+
+  # Note: The voice assistant pipeline in Home Assistant will handle
+  # speech-to-text and text-to-speech.
+
+# Optional: RGB LED (GPIO38 from diagram)
+light:
+  - platform: esp32_rmt_led_strip
+    rgb_order: GRB
+    chipset: WS2812
+    pin: GPIO38
+    num_leds: 1
+    name: "Status LED"
