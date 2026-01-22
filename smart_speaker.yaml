@@ -24,15 +24,15 @@ esp32:
 logger:
 api:
   encryption:
-    key: "otlXlpXQqC6Rf4zzjLfWMDGGuKJhfuFRaFrloH9xNi8="
+    key: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 
 ota:
   - platform: esphome
-    password: "f0709f2dca5fa1e2201cf46c8fd3cac8"
+    password: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 
 wifi:
-  ssid: "vent24"
-  password: "vnetwirless"
+  ssid: "xxxxxxxxxxxxxxx"
+  password: "xxxxxxxxxxxxxxxxxx"
   ap:
     ssid: "Waveshare-Fallback"
     password: ""
